@@ -12,4 +12,3 @@ The game of snake made in golang
 | A or Left arrow key | moves snake left |
 | R | restart game |
 | F | toggles Vsync |
-# Snake
