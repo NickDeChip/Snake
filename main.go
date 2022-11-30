@@ -20,11 +20,16 @@ const (
 )
 
 type state struct {
-	score      int
-	timer      float32
-	timerCount float32
-	isDead     bool
-	framelimit bool
+	score            int
+	scoreToGive      int
+	scoreTick        float32
+	scoreColour      rl.Color
+	scoreColourTimer float32
+	showScoreColour  bool
+	timer            float32
+	timerCount       float32
+	isDead           bool
+	framelimit       bool
 }
 
 type snake struct {
@@ -48,11 +53,16 @@ func main() {
 	rl.SetTargetFPS(int32(rl.GetMonitorRefreshRate(rl.GetCurrentMonitor())))
 
 	state := state{
-		score:      0,
-		timer:      0,
-		timerCount: 0.3,
-		isDead:     false,
-		framelimit: false,
+		score:            0,
+		scoreToGive:      15,
+		scoreTick:        0,
+		scoreColour:      rl.White,
+		scoreColourTimer: 0,
+		showScoreColour:  false,
+		timer:            0,
+		timerCount:       0.3,
+		isDead:           false,
+		framelimit:       false,
 	}
 
 	snake := snake{
@@ -173,16 +183,32 @@ func fruitUpdate(fruit *fruit, snake *snake, state *state, dt float32) {
 	}
 
 	fruit.tick += dt
+	state.scoreTick += dt
 	if rl.CheckCollisionRecs(rl.NewRectangle(snake.body[0].X, snake.body[0].Y, scl, scl), rl.NewRectangle(fruit.pos.X, fruit.pos.Y, scl, scl)) {
+		state.scoreColour = rl.Lime
+		state.showScoreColour = true
 		snake.body = append(snake.body, rl.NewVector2(snake.body[len(snake.body)-1].X, snake.body[len(snake.body)-1].Y))
 		fruit.pos = rl.NewVector2(float32(rl.GetRandomValue(0, (winWidth/scl)-1)*scl), float32(rl.GetRandomValue(2, (winHeight/scl)-1)*scl))
 		state.timerCount -= 0.05
 		fruit.tick = 0
-		state.score += 10
+		state.score += state.scoreToGive
+		state.scoreToGive = 15
+	} else if state.showScoreColour {
+		state.scoreColourTimer += dt
+	}
+	if state.scoreColourTimer >= 0.35 {
+		state.showScoreColour = false
+		state.scoreColourTimer = 0
+		state.scoreColour = rl.White
 	}
 	if fruit.tick >= 15 {
 		fruit.tick = 0
 		fruit.pos = rl.NewVector2(float32(rl.GetRandomValue(0, winWidth/scl)*scl), float32(rl.GetRandomValue(2, winHeight/scl)*scl))
+		state.scoreToGive = 15
+	}
+	if state.scoreTick >= 1 {
+		state.scoreTick = 0
+		state.scoreToGive -= 1
 	}
 }
 
@@ -196,7 +222,8 @@ func draw(snake *snake, fruit *fruit, hud *hud, state *state) {
 	}
 	rl.DrawRectangleV(fruit.pos, rl.NewVector2(scl, scl), rl.DarkGreen)
 	rl.DrawRectangleRec(hud.rec, rl.DarkGray)
-	rl.DrawText(fmt.Sprintf("Score: %d", state.score), 10, 2, 30, rl.White)
+	rl.DrawText(fmt.Sprintf("Score: %d", state.score), 10, 2, 30, state.scoreColour)
+	rl.DrawText(fmt.Sprintf("+%d", state.scoreToGive), winWidth/2-20, 2, 30, state.scoreColour)
 	rl.DrawText(fmt.Sprintf("FPS: %d", rl.GetFPS()), winWidth-130, 2, 30, rl.White)
 }
 
@@ -210,6 +237,10 @@ func restart(snake *snake, state *state, fruit *fruit) {
 	state.timerCount = 0.3
 	state.score = 0
 	state.isDead = false
+	state.scoreToGive = 15
+	state.scoreTick = 0
+	state.scoreColourTimer = 0
+	state.showScoreColour = false
 
 	fruit.pos = rl.NewVector2(float32(rl.GetRandomValue(0, (winWidth/scl)-1)*scl), float32(rl.GetRandomValue(2, (winHeight/scl)-1)*scl))
 	fruit.tick = 0
