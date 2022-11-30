@@ -224,7 +224,6 @@ func draw(snake *snake, fruit *fruit, hud *hud, state *state) {
 	rl.DrawRectangleRec(hud.rec, rl.DarkGray)
 	rl.DrawText(fmt.Sprintf("Score: %d", state.score), 10, 2, 30, state.scoreColour)
 	rl.DrawText(fmt.Sprintf("+%d", state.scoreToGive), winWidth/2-20, 2, 30, state.scoreColour)
-	rl.DrawText(fmt.Sprintf("FPS: %d", rl.GetFPS()), winWidth-130, 2, 30, rl.White)
 }
 
 func restart(snake *snake, state *state, fruit *fruit) {
@@ -241,6 +240,7 @@ func restart(snake *snake, state *state, fruit *fruit) {
 	state.scoreTick = 0
 	state.scoreColourTimer = 0
 	state.showScoreColour = false
+	state.scoreColour = rl.White
 
 	fruit.pos = rl.NewVector2(float32(rl.GetRandomValue(0, (winWidth/scl)-1)*scl), float32(rl.GetRandomValue(2, (winHeight/scl)-1)*scl))
 	fruit.tick = 0
