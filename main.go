@@ -1,7 +1,12 @@
 package main
 
 import (
+	"encoding/base64"
+	"encoding/json"
+	"errors"
 	"fmt"
+	"os"
+	"strconv"
 
 	"github.com/gen2brain/raylib-go/raylib"
 )
@@ -21,6 +26,9 @@ const (
 
 type state struct {
 	score            int
+	highScore        int
+	highScoreHolder  string
+	currentUser      string
 	scoreToGive      int
 	scoreTick        float32
 	scoreColour      rl.Color
@@ -30,6 +38,7 @@ type state struct {
 	timerCount       float32
 	isDead           bool
 	framelimit       bool
+	isScoreSaved     bool
 }
 
 type snake struct {
@@ -48,12 +57,64 @@ type hud struct {
 	rec rl.Rectangle
 }
 
+type ScoreData struct {
+	Score string
+	Name  string
+}
+
+type UserData struct {
+	UserName string
+}
+
 func main() {
 	rl.InitWindow(winWidth, winHeight, "Snake")
 	rl.SetTargetFPS(int32(rl.GetMonitorRefreshRate(rl.GetCurrentMonitor())))
 
+	userbytes, err := os.ReadFile("snake_config.json")
+	if err != nil {
+		panic(err)
+	}
+	userData := UserData{}
+	err = json.Unmarshal(userbytes, &userData)
+	if err != nil {
+		panic(err)
+	}
+
+	if len(userData.UserName) != 3 {
+		panic("name To long/short make 3 chars only")
+	}
+
+	scoreData := ScoreData{}
+	scoreBytes, err := os.ReadFile("score.json")
+	if err != nil {
+		if !errors.Is(err, os.ErrNotExist) {
+			panic(err)
+		} else {
+			scoreData.Name = userData.UserName
+			scoreData.Score = "MA=="
+		}
+	} else {
+		err = json.Unmarshal(scoreBytes, &scoreData)
+		if err != nil {
+			panic(err)
+		}
+	}
+
+	highScoreBytes, err := base64.StdEncoding.DecodeString(scoreData.Score)
+	if err != nil {
+		panic(err)
+	}
+
+	highscore, err := strconv.Atoi(string(highScoreBytes))
+	if err != nil {
+		panic(err)
+	}
+
 	state := state{
 		score:            0,
+		highScore:        highscore,
+		highScoreHolder:  scoreData.Name,
+		currentUser:      userData.UserName,
 		scoreToGive:      15,
 		scoreTick:        0,
 		scoreColour:      rl.White,
@@ -63,6 +124,7 @@ func main() {
 		timerCount:       0.3,
 		isDead:           false,
 		framelimit:       false,
+		isScoreSaved:     false,
 	}
 
 	snake := snake{
@@ -114,6 +176,27 @@ func snakeUpdate(state *state, snake *snake, dt float32, fruit *fruit, hud *hud)
 	}
 
 	if state.isDead {
+		if !state.isScoreSaved {
+			state.isScoreSaved = true
+			if state.score < state.highScore {
+				return
+			}
+			state.highScore = state.score
+			state.highScoreHolder = state.currentUser
+			highScore64 := base64.StdEncoding.EncodeToString([]byte(strconv.Itoa(state.highScore)))
+			score := ScoreData{
+				Score: highScore64,
+				Name:  state.currentUser,
+			}
+			data, err := json.Marshal(score)
+			if err != nil {
+				panic(err)
+			}
+			err = os.WriteFile("score.json", data, 0755)
+			if err != nil {
+				panic(err)
+			}
+		}
 		return
 	}
 
@@ -224,6 +307,7 @@ func draw(snake *snake, fruit *fruit, hud *hud, state *state) {
 	rl.DrawRectangleRec(hud.rec, rl.DarkGray)
 	rl.DrawText(fmt.Sprintf("Score: %d", state.score), 10, 2, 30, state.scoreColour)
 	rl.DrawText(fmt.Sprintf("+%d", state.scoreToGive), winWidth/2-20, 2, 30, state.scoreColour)
+	rl.DrawText(fmt.Sprintf("%s: %d", state.highScoreHolder, state.highScore), winWidth-180, 2, 30, state.scoreColour)
 }
 
 func restart(snake *snake, state *state, fruit *fruit) {
@@ -241,6 +325,7 @@ func restart(snake *snake, state *state, fruit *fruit) {
 	state.scoreColourTimer = 0
 	state.showScoreColour = false
 	state.scoreColour = rl.White
+	state.isScoreSaved = false
 
 	fruit.pos = rl.NewVector2(float32(rl.GetRandomValue(0, (winWidth/scl)-1)*scl), float32(rl.GetRandomValue(2, (winHeight/scl)-1)*scl))
 	fruit.tick = 0

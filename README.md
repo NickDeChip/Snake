@@ -2,6 +2,10 @@
 
 The game of snake made in golang
 
+## Name Setting
+
+To add your name to the high score enter your name into the snake_config.json file.
+
 ## Controls
 
 | input | output |
